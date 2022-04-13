@@ -22,6 +22,30 @@ API URLs
 - update object using HTTP PUT / PATCH
 - remove it completely using HTTP DELETE
 
+Basic Requirements for Feed API
+
+1. Create new feed items
+    - logged in user only
+2. Updating feed items
+    - logged in user only
+3. Deleting profile feed items
+    - logged in user only
+4. Viewing other profile status updates
+    - All users
+
+API URLs
+
+/api/feed/
+- list all feed items
+- GET (list feed items)
+- POST (create feed item for logged in user)
+
+/api/feed/<feed_item_id>/
+- manage specific feed items
+- GET (get the feed item)
+- PUT/PATCH (update feed item)
+- DELETE (delete feed item)
+
 """
 
 from rest_framework.views import APIView
@@ -32,6 +56,7 @@ from rest_framework import filters
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.settings import api_settings
+from rest_framework.permissions import IsAuthenticated
 
 from profiles_api import serializers
 from profiles_api import models
@@ -91,6 +116,7 @@ class HelloAPIView(APIView):
         """ Delete an object """
         return Response({'method': 'DELETE'})
 
+
 class HelloViewSet(viewsets.ViewSet):
     """ Test API ViewSet """
     serializers_class = serializers.HelloSerializer
@@ -136,7 +162,6 @@ class HelloViewSet(viewsets.ViewSet):
         return Response({'http_method': 'DELETE'})
 
 
-# Start model
 class UserProfileViewSet(viewsets.ModelViewSet):
     """ Handle creating and updating profiles """
     serializer_class = serializers.UserProfileSerializer
@@ -146,7 +171,22 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name', 'email',)
 
+
 class UserLoginApiView(ObtainAuthToken):
     """ Handle creating authentiation tokens """
     renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES
-    
+
+
+class UserProfileFeedViewSet(viewsets.ModelViewSet):
+    """ Handle creating, reading and updating profile feed items """
+    authentication_classes = (TokenAuthentication,)
+    serializer_class = serializers.ProfileFeedItemSerializer
+    queryset = models.ProfileFeedItem.objects.all()
+    permission_classes = (
+        permissions.UpdateOwnStatus,
+        IsAuthenticated
+    )
+
+    def perform_create(self, serializer):
+        """ Set the user profile to the logged in user """
+        serializer.save(user_profile=self.request.user)
